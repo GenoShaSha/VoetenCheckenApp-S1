@@ -11,26 +11,15 @@ import {
   ScrollView,
 } from 'react-native';
 
-// TFJS model helpers (static import so Metro shows bundle errors clearly)
-import {
-  initTF,
-  decodeImageToTensor,
-  runConditionInference,
-  runIqaInference,
-} from './tfjs/modelLoader';
+import { initTF } from './tfjs/modelLoader';
 
-// Label files for the two models
-// (from src/ to project root is ../, then my_tfjs_models/... )
 const conditionLabels = require('../my_tfjs_models/condition_labels.json');
 const iqaLabels = require('../my_tfjs_models/iqa_labels.json');
-
-// Try to import launchImageLibrary; guard so app still compiles if package not installed yet
 let launchImageLibrary: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   launchImageLibrary = require('react-native-image-picker').launchImageLibrary;
 } catch (e) {
-  // package may not be installed; we'll show a helpful message in UI
 }
 
 type ImageResult = {
@@ -50,7 +39,6 @@ export default function ImagePickerScreen() {
   const requestAndroidPermission = async () => {
     if (Platform.OS !== 'android') return true;
     try {
-      // Android 13+ uses READ_MEDIA_IMAGES; older versions use READ_EXTERNAL_STORAGE
       const sdk = Number(Platform.Version) || 0;
       const perm =
         sdk >= 33
@@ -58,7 +46,6 @@ export default function ImagePickerScreen() {
             'android.permission.READ_MEDIA_IMAGES'
           : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
 
-      // If already granted, return true
       const already = await PermissionsAndroid.check(perm as any);
       if (already) return true;
 
@@ -104,7 +91,6 @@ export default function ImagePickerScreen() {
         includeBase64: true,
       });
 
-      // response can be {didCancel, errorCode, assets}
       if (res?.didCancel) {
         console.log('[PICK_IMAGE] User cancelled image selection');
         setLoading(false);
@@ -142,29 +128,39 @@ export default function ImagePickerScreen() {
       };
       setImage(picked);
 
-      // Run on-device TFJS inference
       try {
-        console.log('[PICK_IMAGE] ========== STARTING INFERENCE PIPELINE ==========');
-        
-        console.log('[PICK_IMAGE] Step 1: Initialize TFJS...');
+        console.log('[PICK_IMAGE] ========== STARTING INFERENCE PIPELINE (BACKEND) ==========');
+
+        console.log('[PICK_IMAGE] Step 1: Initialize TFJS (for any local ops)...');
         await initTF();
         console.log('[PICK_IMAGE] Step 1: TFJS initialized');
 
-        console.log('[PICK_IMAGE] Step 2: Decode image to tensor...');
-        const imageSource = picked.base64 ? {base64: picked.base64} : (picked.uri as string);
-        console.log('[PICK_IMAGE] Image source type:', picked.base64 ? 'base64' : 'uri');
-        const imgTensor = await decodeImageToTensor(imageSource);
-        console.log('[PICK_IMAGE] Step 2: Image tensor created, shape:', imgTensor.shape);
+        if (!picked.base64) {
+          throw new Error('No base64 data available for prediction');
+        }
 
-        console.log('[PICK_IMAGE] Step 3: Run condition inference...');
-        const condScores = await runConditionInference(imgTensor as any);
-        console.log('[PICK_IMAGE] Step 3: Condition inference complete');
+        console.log('[PICK_IMAGE] Step 2: Sending image to backend...');
+        const backendUrl = 'http://localhost:3000/predict';
+        const response = await fetch(backendUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({imageBase64: picked.base64}),
+        });
 
-        console.log('[PICK_IMAGE] Step 4: Run IQA inference...');
-        const iqaScores = await runIqaInference(imgTensor as any);
-        console.log('[PICK_IMAGE] Step 4: IQA inference complete');
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Backend error ${response.status}: ${text}`);
+        }
 
-        console.log('[PICK_IMAGE] Step 5: Process results...');
+        const json = await response.json();
+        const condScores = json.conditionScores || [];
+        const iqaScores = json.iqaScores || [];
+
+        console.log('[PICK_IMAGE] Step 3: Backend response received');
+
+        console.log('[PICK_IMAGE] Step 4: Process results...');
         const condTop = condScores
           .map((s: number, i: number) => ({
             label: conditionLabels[i] ?? String(i),
@@ -181,10 +177,10 @@ export default function ImagePickerScreen() {
           .sort((a: any, b: any) => b.score - a.score)
           .slice(0, 3);
 
-        console.log('[PICK_IMAGE] Step 5: Results processed');
+        console.log('[PICK_IMAGE] Step 4: Results processed');
         console.log('[PICK_IMAGE] Top condition results:', condTop);
         console.log('[PICK_IMAGE] Top IQA results:', iqaTop);
-        console.log('[PICK_IMAGE] ========== INFERENCE PIPELINE COMPLETE ==========');
+        console.log('[PICK_IMAGE] ========== INFERENCE PIPELINE COMPLETE (BACKEND) ==========');
 
         setAnalysis({condition: condTop, iqa: iqaTop});
       } catch (e: any) {

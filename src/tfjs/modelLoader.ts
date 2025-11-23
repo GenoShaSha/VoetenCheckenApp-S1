@@ -1,6 +1,5 @@
 import * as tf from '@tensorflow/tfjs';
 import * as base64js from 'base64-js';
-import { bundleResourceIO } from '@tensorflow/tfjs-react-native';
 import * as JPEGDecoder from 'jpeg-js';
 
 let initialized = false;
@@ -19,7 +18,6 @@ export async function initTF() {
     await tf.ready();
     console.log('[TFJS] tf.ready() completed');
 
-    // 🔧 Patch env().platform for React Native (isTypedArray + fetch)
     try {
       const env = (tf as any).env?.();
       if (env) {
@@ -31,7 +29,6 @@ export async function initTF() {
         const existingPlatform = env.platform || {};
         const patchedPlatform = {
           ...existingPlatform,
-          // Ensure isTypedArray exists
           isTypedArray:
             existingPlatform.isTypedArray ||
             ((x: any) =>
@@ -42,7 +39,6 @@ export async function initTF() {
                 x instanceof Uint8Array ||
                 x instanceof Int32Array ||
                 x instanceof Uint8ClampedArray)),
-          // Ensure fetch exists, using React Native global fetch
           fetch:
             existingPlatform.fetch ||
             ((input: any, init?: any) => {
@@ -85,116 +81,18 @@ export async function initTF() {
   }
 }
 
-/**
- * ----- MODEL ASSETS -----
- * Paths are relative to this file: src/tfjs/modelLoader.ts
- * Project root has: /my_tfjs_models/condition_model and /my_tfjs_models/iqa_model
- *
- * IMPORTANT: update shard filenames below to match your actual files
- * (they are usually named like group1-shard1of3.bin, group1-shard2of3.bin, etc.)
- */
-
-// CONDITION MODEL ASSETS
-// Metro returns numeric resource IDs for these require() calls; we cast
-// them to the types expected by bundleResourceIO/loadLayersModel.
-const conditionModelJson = require('../../my_tfjs_models/condition_model/model.json') as unknown as tf.io.ModelJSON;
-const conditionModelWeights = [
-  require('../../my_tfjs_models/condition_model/group1-shard1of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard2of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard3of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard4of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard5of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard6of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard7of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard8of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard9of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard10of11.bin') as number,
-  require('../../my_tfjs_models/condition_model/group1-shard11of11.bin') as number,
-];
-
-// IQA MODEL ASSETS
-const iqaModelJson = require('../../my_tfjs_models/iqa_model/model.json') as unknown as tf.io.ModelJSON;
-const iqaModelWeights = [
-  require('../../my_tfjs_models/iqa_model/group1-shard1of5.bin') as number,
-  require('../../my_tfjs_models/iqa_model/group1-shard2of5.bin') as number,
-  require('../../my_tfjs_models/iqa_model/group1-shard3of5.bin') as number,
-  require('../../my_tfjs_models/iqa_model/group1-shard4of5.bin') as number,
-  require('../../my_tfjs_models/iqa_model/group1-shard5of5.bin') as number,
-];
-
-/**
- * Generic helper using bundleResourceIO so we don't hit network/fetch/file:// issues.
- */
-async function loadModelFromBundle(
-  jsonAsset: tf.io.ModelJSON,
-  weightAssets: number[],
-  name: string
-) {
-  console.log(`[MODEL_LOADER] Attempting to load ${name} from bundled assets...`);
-  try {
-    const handler = bundleResourceIO(jsonAsset, weightAssets);
-    const model = await tf.loadLayersModel(handler);
-    console.log(`[MODEL_LOADER] ${name} loaded successfully`);
-
-    if (model && typeof model === 'object') {
-      console.log(`[MODEL_LOADER] ${name} keys:`, Object.keys(model).slice(0, 10));
-      if ((model as any).inputs) {
-        console.log(`[MODEL_LOADER] ${name} inputs:`, (model as any).inputs);
-      }
-      if ((model as any).outputs) {
-        console.log(`[MODEL_LOADER] ${name} outputs:`, (model as any).outputs);
-      }
-    }
-
-    return model;
-  } catch (e) {
-    console.error(`[MODEL_LOADER] FAILED to load ${name} from bundle:`, e);
-    if (e instanceof Error) {
-      console.error(`[MODEL_LOADER] Error name: ${e.name}`);
-      console.error(`[MODEL_LOADER] Error message: ${e.message}`);
-      console.error(`[MODEL_LOADER] Error stack:`, e.stack);
-    }
-    if (typeof e === 'object' && e !== null) {
-      console.error(
-        `[MODEL_LOADER] Error object keys:`,
-        Object.keys(e as Record<string, unknown>)
-      );
-      try {
-        console.error(
-          `[MODEL_LOADER] Full error object:`,
-          JSON.stringify(e, null, 2)
-        );
-      } catch {
-        // ignore stringify errors
-      }
-    }
-    throw e;
-  }
-}
-
 export async function loadConditionModel() {
-  if (conditionModel) return conditionModel;
-  conditionModel = await loadModelFromBundle(
-    conditionModelJson,
-    conditionModelWeights,
-    'condition_model'
+  throw new Error(
+    'loadConditionModel is now handled on the backend. Call the backend prediction API instead.'
   );
-  return conditionModel;
 }
 
 export async function loadIqaModel() {
-  if (iqaModel) return iqaModel;
-  iqaModel = await loadModelFromBundle(
-    iqaModelJson,
-    iqaModelWeights,
-    'iqa_model'
+  throw new Error(
+    'loadIqaModel is now handled on the backend. Call the backend prediction API instead.'
   );
-  return iqaModel;
 }
 
-/**
- * Decode base64/URI JPEG into a [H, W, 3] float32 tensor in [0, 1].
- */
 export async function decodeImageToTensor(input: string | { base64: string }) {
   console.log('[DECODE] Starting image decode...');
 
@@ -277,88 +175,5 @@ export async function decodeImageToTensor(input: string | { base64: string }) {
 /**
  * CONDITION MODEL INFERENCE
  */
-export async function runConditionInference(imgTensor: tf.Tensor3D) {
-  console.log('[INFERENCE_COND] Starting condition inference...');
-  console.log('[INFERENCE_COND] Input tensor shape:', imgTensor.shape);
-
-  try {
-    console.log('[INFERENCE_COND] Loading condition model...');
-    const model = await loadConditionModel();
-    console.log('[INFERENCE_COND] Model loaded');
-
-    // imgTensor is already [0,1]; just resize + add batch
-    console.log('[INFERENCE_COND] Preprocessing: resizing to 300x300...');
-    const input = tf
-      .image
-      .resizeBilinear(imgTensor as any, [300, 300])
-      .expandDims(0);
-    console.log('[INFERENCE_COND] Input tensor prepared, shape:', input.shape);
-
-    console.log('[INFERENCE_COND] Running model.predict()...');
-    const out = model.predict(input) as tf.Tensor;
-    console.log('[INFERENCE_COND] Prediction complete, output shape:', out.shape);
-
-    console.log('[INFERENCE_COND] Extracting output data...');
-    const data = await out.data();
-    console.log('[INFERENCE_COND] Output data extracted, length:', data.length);
-
-    const result = Array.from(data);
-    console.log(
-      '[INFERENCE_COND] Inference complete, returning',
-      result.length,
-      'scores'
-    );
-    return result;
-  } catch (e) {
-    console.error('[INFERENCE_COND] Condition inference failed:', e);
-    if (e instanceof Error) {
-      console.error('[INFERENCE_COND] Error message:', e.message);
-      console.error('[INFERENCE_COND] Stack:', e.stack);
-    }
-    throw e;
-  }
-}
-
-/**
- * IQA MODEL INFERENCE
- */
-export async function runIqaInference(imgTensor: tf.Tensor3D) {
-  console.log('[INFERENCE_IQA] Starting IQA inference...');
-  console.log('[INFERENCE_IQA] Input tensor shape:', imgTensor.shape);
-
-  try {
-    console.log('[INFERENCE_IQA] Loading IQA model...');
-    const model = await loadIqaModel();
-    console.log('[INFERENCE_IQA] Model loaded');
-
-    console.log('[INFERENCE_IQA] Preprocessing: resizing to 224x224...');
-    const input = tf
-      .image
-      .resizeBilinear(imgTensor as any, [224, 224])
-      .expandDims(0);
-    console.log('[INFERENCE_IQA] Input tensor prepared, shape:', input.shape);
-
-    console.log('[INFERENCE_IQA] Running model.predict()...');
-    const out = model.predict(input) as tf.Tensor;
-    console.log('[INFERENCE_IQA] Prediction complete, output shape:', out.shape);
-
-    console.log('[INFERENCE_IQA] Extracting output data...');
-    const data = await out.data();
-    console.log('[INFERENCE_IQA] Output data extracted, length:', data.length);
-
-    const result = Array.from(data);
-    console.log(
-      '[INFERENCE_IQA] Inference complete, returning',
-      result.length,
-      'scores'
-    );
-    return result;
-  } catch (e) {
-    console.error('[INFERENCE_IQA] IQA inference failed:', e);
-    if (e instanceof Error) {
-      console.error('[INFERENCE_IQA] Error message:', e.message);
-      console.error('[INFERENCE_IQA] Stack:', e.stack);
-    }
-    throw e;
-  }
-}
+// On-device model inference has been moved to the backend server.
+// This file now only provides TFJS init and image decoding.
