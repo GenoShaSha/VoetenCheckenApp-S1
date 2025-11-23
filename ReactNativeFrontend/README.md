@@ -1,97 +1,84 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+## ReactNativeFrontend
 
-# Getting Started
+React Native frontend for the VoetenChecken app. It lets users pick or capture a foot image, sends it to the Python backend, and displays condition and image‑quality feedback.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+This app was bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli) and targets Android (iOS can be added later).
 
-## Step 1: Start Metro
+## Prerequisites
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+- Node (see required version in `package.json` under `engines`)
+- Android SDK / emulator or a physical Android device with USB debugging enabled
+- Python backend running from `PythonServer` (see `../PythonServer/README.md`)
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Install dependencies
 
-```sh
-# Using npm
+From the `ReactNativeFrontend` folder:
+
+```powershell
+cd "ReactNativeFrontend"
+npm install
+```
+
+## Start Metro bundler
+
+```powershell
+cd "ReactNativeFrontend"
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
+Keep this terminal running; Metro serves the JavaScript bundle.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## Run the Android app
 
-### Android
+In another terminal, from `ReactNativeFrontend`:
 
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```powershell
+cd "ReactNativeFrontend"
+npx react-native run-android
 ```
 
-### iOS
+Make sure an Android emulator is running or a device is connected.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Connect to the Python backend
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+The Python server runs on your Windows host at `http://localhost:3000`.
 
-```sh
-bundle install
+For Android emulators/devices to reach it, forward the port:
+
+```powershell
+adb reverse tcp:3000 tcp:3000
 ```
 
-Then, and every time you update your native dependencies, run:
+Run this while a device/emulator is connected. After that, the app can use `http://localhost:3000` as the backend URL.
 
-```sh
-bundle exec pod install
+## Image picking
+
+The screen in `src/ImagePickerScreen.tsx` uses `react-native-image-picker` to open the gallery or camera.
+
+If you ever reinstall dependencies from scratch, ensure the native module is installed:
+
+```powershell
+cd "ReactNativeFrontend"
+npm install react-native-image-picker
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Then rebuild the Android app with `npx react-native run-android`.
 
-```sh
-# Using npm
-npm run ios
+## Scripts
 
-# OR using Yarn
-yarn ios
-```
+Useful `package.json` scripts:
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+- `npm run android` – alias for `react-native run-android`
+- `npm run ios` – (future) run on iOS
+- `npm test` – run Jest tests
+- `npm run copy-models` – copies TensorFlow.js models from `my_tfjs_models` to the app bundle via `tools/copy-models.js`
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Troubleshooting
 
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- If Android build fails with a Gradle or `react-native-image-picker` error, try:
+	- `cd ReactNativeFrontend/android`
+	- `.gradlew clean`
+	- then rerun `npx react-native run-android` from `ReactNativeFrontend`.
+- If the app cannot reach the backend, confirm:
+	- Python server is running on port 3000.
+	- `adb reverse tcp:3000 tcp:3000` has been executed.
