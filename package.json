@@ -5,13 +5,20 @@
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "copy-models": "node ./tools/copy-models.js",
     "lint": "eslint .",
     "start": "node --require ./rn-cli-shim.js ./node_modules/react-native/cli.js start",
     "test": "jest"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.82.1",
+    "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-node": "^4.22.0",
+    "@tensorflow/tfjs-react-native": "1.0.0",
+    "base64-js": "^1.5.1",
+    "buffer": "^6.0.3",
+    "expo-image-manipulator": "^14.0.7",
+    "jpeg-js": "^0.4.4",
     "react": "19.1.1",
     "react-native": "0.82.1",
     "react-native-image-picker": "^5.0.1",
