@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-
+import {Camera} from 'react-native-vision-camera';
+import type {CameraPermissionStatus} from 'react-native-vision-camera';
 import {initTF} from './tfjs/modelLoader';
 
 const conditionLabels = require('../my_tfjs_models/condition_labels.json');
@@ -18,7 +19,6 @@ const iqaLabels = require('../my_tfjs_models/iqa_labels.json');
 
 let launchCamera: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   launchCamera = require('react-native-image-picker').launchCamera;
 } catch (e) {}
 
@@ -37,7 +37,22 @@ export default function CameraScreen() {
   const [error, setError] = useState<string | null>(null);
 
 
+const requestCameraPermission = async () => {
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+    return true;
+  }
 
+  const status = (await Camera.requestCameraPermission()) as CameraPermissionStatus;
+
+  if (status === 'denied' || status === 'restricted') {
+    setError(
+      'Camera permission is denied. Please enable it in Settings > Apps > VoetProj > Permissions.',
+    );
+    return false;
+  }
+
+  return status === 'granted';
+};
 // const requestCameraPermission = async () => {
 //   if (Platform.OS !== 'android') {
 //     return true;
@@ -52,104 +67,29 @@ export default function CameraScreen() {
 //         ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
 //         : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
 
-//     // If storagePerm is missing for some reason, just request camera
-//     if (!storagePerm) {
-//       const camResult = await PermissionsAndroid.request(cameraPerm);
-//       if (camResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-//         setError(
-//           'Camera permission is permanently denied. Please enable it in Settings > Apps > VoetProj > Permissions.',
-//         );
+//     // Just ask for CAMERA first and decide only on that.
+//     const camResult = await PermissionsAndroid.request(cameraPerm);
+//     console.log('[PERM] single camResult', camResult);
+
+//     if (camResult === PermissionsAndroid.RESULTS.GRANTED) {
+//       // (Optional) ask storage, but ignore its result for now
+//       if (storagePerm) {
+//         const storResult = await PermissionsAndroid.request(storagePerm);
+//         console.log('[PERM] single storResult', storResult);
 //       }
-//       return camResult === PermissionsAndroid.RESULTS.GRANTED;
+//       return true; // <- key: allow camera flow
 //     }
-
-//     const alreadyCamera = await PermissionsAndroid.check(cameraPerm);
-//     const alreadyStorage = await PermissionsAndroid.check(storagePerm);
-
-//     if (alreadyCamera && alreadyStorage) {
-//       return true;
-//     }
-
-//     const granted = await PermissionsAndroid.requestMultiple([
-//       cameraPerm,
-//       storagePerm,
-//     ]);
-
-//     console.log('[PERM] granted', granted); // temporary
-
-//     const camResult = granted[cameraPerm];
-//     const storResult = granted[storagePerm];
-
-//     console.log('[PERM] camResult', camResult, 'storResult', storResult); //temp
-//     if (camResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-//   setError(
-//     'Camera permission is permanently denied. Please enable it in Settings > Apps > VoetProj > Permissions.',
-//   );
-// }
-
-// const camOk = camResult === PermissionsAndroid.RESULTS.GRANTED;
-// // allow even if storResult is denied
-// return camOk;
-
-//     // const camOk = camResult === PermissionsAndroid.RESULTS.GRANTED;
-//     // const storOk = storResult === PermissionsAndroid.RESULTS.GRANTED;
-
-//     // if (camResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-//     //   setError(
-//     //     'Camera permission is permanently denied. Please enable it in Settings > Apps > VoetProj > Permissions.',
-//     //   );
+//     // } else if (camResult === PermissionsAndroid.RESULTS.DENIED) {
+//     //   setError('Camera permission denied. Please allow it to take pictures.');
 //     // }
 
-//     // return camOk && storOk;
+//     return false;
 //   } catch (err) {
 //     console.warn('[PERM] Permission error:', err);
 //     setError('Unable to request camera permission. Please try again.');
 //     return false;
 //   }
 // };
-
-const requestCameraPermission = async () => {
-  if (Platform.OS !== 'android') {
-    return true;
-  }
-
-  try {
-    const sdk = Number(Platform.Version) || 0;
-
-    const cameraPerm = PermissionsAndroid.PERMISSIONS.CAMERA;
-    const storagePerm =
-      sdk >= 33
-        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
-        : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
-
-    // Just ask for CAMERA first and decide only on that.
-    const camResult = await PermissionsAndroid.request(cameraPerm);
-    console.log('[PERM] single camResult', camResult);
-
-    if (camResult === PermissionsAndroid.RESULTS.GRANTED) {
-      // (Optional) ask storage, but ignore its result for now
-      if (storagePerm) {
-        const storResult = await PermissionsAndroid.request(storagePerm);
-        console.log('[PERM] single storResult', storResult);
-      }
-      return true; // <- key: allow camera flow
-    }
-
-    if (camResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-      setError(
-        'Camera permission is permanently denied. Please enable it in Settings > Apps > VoetProj > Permissions.',
-      );
-    } else if (camResult === PermissionsAndroid.RESULTS.DENIED) {
-      setError('Camera permission denied. Please allow it to take pictures.');
-    }
-
-    return false;
-  } catch (err) {
-    console.warn('[PERM] Permission error:', err);
-    setError('Unable to request camera permission. Please try again.');
-    return false;
-  }
-};
 
   const takePicture = async () => {
     console.log('[CAMERA] Capture initiated');
@@ -158,11 +98,10 @@ const requestCameraPermission = async () => {
     setImage(null);
 
     const hasPermission = await requestCameraPermission();
-    if (!hasPermission) {
-      console.warn('[CAMERA] Permission denied');
-      setError('Camera or storage permission denied');
-      return;
-    }
+console.log('[CAMERA] hasPermission', hasPermission);
+if (hasPermission === false) {
+  console.warn('[CAMERA] Permission denied (but continuing for debug)');
+}
 
     if (!launchCamera) {
       console.error('[CAMERA] launchCamera not available');
@@ -378,3 +317,6 @@ const styles = StyleSheet.create({
   resultLabel: {color: '#374151'},
   resultValue: {color: '#111827', fontWeight: '600'},
 });
+
+
+
