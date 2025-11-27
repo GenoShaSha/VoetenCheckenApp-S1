@@ -8,6 +8,7 @@ import numpy as np
 from tensorflow import keras
 from tensorflow.keras.applications.efficientnet import preprocess_input
 import pickle
+import cv2
 
 # ----------------------
 # Paths (relative to project root)
@@ -84,6 +85,35 @@ def preprocess_for_condition(img: Image.Image) -> np.ndarray:
     return np.expand_dims(arr, axis=0)
 
 
+def compute_opencv_metrics_from_pil(img: Image.Image) -> dict:
+    arr = np.array(img)
+    img_bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+    sharpness = cv2.Laplacian(gray, cv2.CV_64F).var()
+    contrast = float(np.std(gray))
+    brightness = float(np.mean(gray))
+
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    noise = float(np.var(gray - blurred))
+
+    def blockiness_score(gray_img):
+        h, w = gray_img.shape
+        vertical_diff = np.sum(np.abs(gray_img[:, 1:] - gray_img[:, :-1]))
+        horizontal_diff = np.sum(np.abs(gray_img[1:, :] - gray_img[:-1, :]))
+        return float((vertical_diff + horizontal_diff) / (h * w))
+
+    blockiness = blockiness_score(gray)
+
+    return {
+        'Sharpness_Laplacian': float(sharpness),
+        'Contrast_STD': contrast,
+        'Brightness': brightness,
+        'NoiseVariance': noise,
+        'Blockiness': blockiness,
+    }
+
+
 # ----------------------
 # Flask app
 # ----------------------
@@ -118,10 +148,12 @@ def predict():
     cond_input = preprocess_for_condition(img)
     cond_probs = cond_model.predict(cond_input, verbose=0)[0]
 
-    # Return raw scores as plain lists (React Native maps them to labels)
+    opencv_metrics = compute_opencv_metrics_from_pil(img)
+
     return jsonify({
         'conditionScores': [float(x) for x in cond_probs],
         'iqaScores': [float(x) for x in iqa_probs],
+        'opencvMetrics': opencv_metrics,
     })
 
 

@@ -35,6 +35,36 @@ export default function ImagePickerScreen() {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<Record<string, any> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openCvMetrics, setOpenCvMetrics] = useState<{
+    Sharpness_Laplacian?: number;
+    Contrast_STD?: number;
+    Brightness?: number;
+    NoiseVariance?: number;
+    Blockiness?: number;
+  } | null>(null);
+
+  const warnEmoji = '⚠️';
+
+  const getMetricWarning = (key: string, value?: number) => {
+    if (value == null) {
+      return '';
+    }
+
+    switch (key) {
+      case 'Sharpness_Laplacian':
+        return value < 100 ? ` ${warnEmoji}` : '';
+      case 'Contrast_STD':
+        return value < 20 || value > 60 ? ` ${warnEmoji}` : '';
+      case 'Brightness':
+        return value < 80 || value > 180 ? ` ${warnEmoji}` : '';
+      case 'NoiseVariance':
+        return value > 20000 ? ` ${warnEmoji}` : '';
+      case 'Blockiness':
+        return value > 300 ? ` ${warnEmoji}` : '';
+      default:
+        return '';
+    }
+  };
 
   const requestAndroidPermission = async () => {
     if (Platform.OS !== 'android') return true;
@@ -64,6 +94,7 @@ export default function ImagePickerScreen() {
     console.log('[PICK_IMAGE] Image picker initiated');
     setError(null);
     setAnalysis(null);
+    setOpenCvMetrics(null);
     
     console.log('[PICK_IMAGE] Requesting Android permission...');
     const hasPermission = await requestAndroidPermission();
@@ -157,6 +188,7 @@ export default function ImagePickerScreen() {
         const json = await response.json();
         const condScores = json.conditionScores || [];
         const iqaScores = json.iqaScores || [];
+        const opencv = json.opencvMetrics || null;
 
         console.log('[PICK_IMAGE] Step 3: Backend response received');
 
@@ -180,9 +212,10 @@ export default function ImagePickerScreen() {
         console.log('[PICK_IMAGE] Step 4: Results processed');
         console.log('[PICK_IMAGE] Top condition results:', condTop);
         console.log('[PICK_IMAGE] Top IQA results:', iqaTop);
+        console.log('[PICK_IMAGE] OpenCV metrics:', opencv);
         console.log('[PICK_IMAGE] ========== INFERENCE PIPELINE COMPLETE (BACKEND) ==========');
-
         setAnalysis({condition: condTop, iqa: iqaTop});
+        setOpenCvMetrics(opencv);
       } catch (e: any) {
         console.error('[PICK_IMAGE] ========== INFERENCE PIPELINE FAILED ==========');
         console.error('Model inference error:', e);
@@ -257,11 +290,11 @@ export default function ImagePickerScreen() {
           <View style={styles.analysis}>
             <Text style={styles.subtitle}>Analysis result</Text>
 
-            {Array.isArray(analysis.condition) ? (
+            {Array.isArray(analysis.iqa) ? (
               <View style={styles.resultSection}>
-                <Text style={styles.resultTitle}>Condition</Text>
-                {analysis.condition.map((item: any, idx: number) => (
-                  <View key={`cond-${idx}`} style={styles.resultRow}>
+                <Text style={styles.resultTitle}>IQA</Text>
+                {analysis.iqa.map((item: any, idx: number) => (
+                  <View key={`iqa-${idx}`} style={styles.resultRow}>
                     <Text style={styles.resultLabel}>{item.label}</Text>
                     <Text style={styles.resultValue}>
                       {(item.score * 100).toFixed(1)}%
@@ -271,11 +304,58 @@ export default function ImagePickerScreen() {
               </View>
             ) : null}
 
-            {Array.isArray(analysis.iqa) ? (
+            {openCvMetrics ? (
               <View style={styles.resultSection}>
-                <Text style={styles.resultTitle}>IQA</Text>
-                {analysis.iqa.map((item: any, idx: number) => (
-                  <View key={`iqa-${idx}`} style={styles.resultRow}>
+                <Text style={styles.resultTitle}>OpenCV Quality Metrics</Text>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Sharpness (Laplacian)</Text>
+                  <Text style={styles.resultValue}>
+                    {openCvMetrics.Sharpness_Laplacian?.toFixed(2) ?? '—'}
+                    {getMetricWarning(
+                      'Sharpness_Laplacian',
+                      openCvMetrics.Sharpness_Laplacian,
+                    )}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Contrast (STD)</Text>
+                  <Text style={styles.resultValue}>
+                    {openCvMetrics.Contrast_STD?.toFixed(2) ?? '—'}
+                    {getMetricWarning('Contrast_STD', openCvMetrics.Contrast_STD)}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Brightness</Text>
+                  <Text style={styles.resultValue}>
+                    {openCvMetrics.Brightness?.toFixed(2) ?? '—'}
+                    {getMetricWarning('Brightness', openCvMetrics.Brightness)}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Noise variance</Text>
+                  <Text style={styles.resultValue}>
+                    {openCvMetrics.NoiseVariance?.toFixed(2) ?? '—'}
+                    {getMetricWarning(
+                      'NoiseVariance',
+                      openCvMetrics.NoiseVariance,
+                    )}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Blockiness</Text>
+                  <Text style={styles.resultValue}>
+                    {openCvMetrics.Blockiness?.toFixed(2) ?? '—'}
+                    {getMetricWarning('Blockiness', openCvMetrics.Blockiness)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            {Array.isArray(analysis.condition) ? (
+              <View style={styles.resultSection}>
+                <Text style={styles.resultTitle}>Condition</Text>
+                {analysis.condition.map((item: any, idx: number) => (
+                  <View key={`cond-${idx}`} style={styles.resultRow}>
                     <Text style={styles.resultLabel}>{item.label}</Text>
                     <Text style={styles.resultValue}>
                       {(item.score * 100).toFixed(1)}%
@@ -308,7 +388,7 @@ export default function ImagePickerScreen() {
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#fafafa'},
-  content: {padding: 20, alignItems: 'center'},
+  content: {padding: 20, paddingBottom: 40, alignItems: 'center'},
   title: {fontSize: 22, fontWeight: '700', marginBottom: 16},
   button: {
     backgroundColor: '#2563eb',

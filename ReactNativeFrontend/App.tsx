@@ -9,6 +9,7 @@ import React from 'react';
 import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ImagePickerScreen from './src/ImagePickerScreen';
+import CameraScreen from './src/CameraScreen';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -17,6 +18,7 @@ function App() {
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <View style={styles.container}>
+        <CameraScreen/>
         <ImagePickerScreen />
       </View>
     </SafeAreaProvider>

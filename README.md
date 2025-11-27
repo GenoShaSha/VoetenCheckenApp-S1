@@ -14,7 +14,10 @@ Monorepo containing the React Native mobile app and a Python backend server for 
 ```powershell
 cd "PythonServer"
 
+#Create a virtual enviroment if you haven't already
 python -m venv .venv
+
+#Activate it
 .\.venv\Scripts\activate
 
 pip install -r requirements.txt
@@ -31,12 +34,16 @@ In another terminal:
 ```powershell
 cd "ReactNativeFrontend"
 
+# Only when running for the first time
 npm install
 
 # start Metro bundler
 npm start
 
-# in a second terminal, build & run on Android
+# Check for devices to make sure you can install the application
+adb devices
+
+# In a second terminal, build & run on Android (Make sure you cd again into the ReactNative dir!)
 npx react-native run-android
 ```
 

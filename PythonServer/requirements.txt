@@ -2,3 +2,5 @@ flask
 numpy
 pillow
 tensorflow
+opencv-python
+scikit-learn

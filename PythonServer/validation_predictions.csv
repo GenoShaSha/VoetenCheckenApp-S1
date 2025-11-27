@@ -1,0 +1,51 @@
+No.,Data Name,Image Quality Label,Foot Condition Label
+1,001.jpeg,Good Foot Picture,"Red, thick, swollen foot"
+2,002.jpeg,Good Foot Picture,Wound on foot
+3,003.jpeg,Good Foot Picture,Wound on foot
+4,004.jpeg,Blurry (out of focus),Wound on foot
+5,005.jpeg,Good Foot Picture,Wound on foot
+6,006.jpeg,Good Foot Picture,"Red, thick, swollen foot"
+7,007.jpeg,Blurry (out of focus),Wound on foot
+8,008.jpeg,Good Foot Picture,Blue discoloration under nail
+9,009.jpeg,Not a Foot,Callus
+10,010.jpeg,Good Foot Picture,Wound on foot
+11,011.jpeg,Blurry (out of focus),"Red, thick, swollen foot"
+12,012.jpeg,Blurry (out of focus),Normal Foot
+13,013.jpeg,Not a Foot,Callus with dark discoloration
+14,014.jpeg,Blurry (out of focus),Wound on foot
+15,015.jpeg,Good Foot Picture,Normal Foot
+16,016.jpeg,Too Dark (Underexposed),Callus
+17,017.jpeg,Too Dark (Underexposed),Normal Foot
+18,018.jpeg,Good Foot Picture,Callus
+19,019.jpeg,Good Foot Picture,Callus
+20,020.jpeg,Good Foot Picture,Callus
+21,021.jpeg,Good Foot Picture,Red spots that increase with shoes
+22,022.jpeg,Good Foot Picture,"Red, thick, swollen foot"
+23,023.jpeg,Blurry (out of focus),Wound on foot
+24,024.jpeg,Good Foot Picture,Normal Foot
+25,025.jpeg,Blurry (out of focus),"Red, thick, swollen foot"
+26,026.jpeg,Good Foot Picture,Normal Foot
+27,027.jpeg,Good Foot Picture,Normal Foot
+28,028.jpeg,Too Dark (Underexposed),Wound on foot
+29,029.jpeg,Too Far (Foot too small in frame),Normal Foot
+30,030.jpeg,Too Dark (Underexposed),Callus
+31,031.jpeg,Blurry (out of focus),Wound on foot
+32,032.jpeg,Good Foot Picture,Normal Foot
+33,033.jpeg,Good Foot Picture,Wound on foot
+34,034.jpeg,Too Far (Foot too small in frame),Wound on foot
+35,035.jpeg,Good Foot Picture,Wound on foot
+36,036.jpeg,Too Dark (Underexposed),Wound on foot
+37,037.jpeg,Too Dark (Underexposed),Wound on foot
+38,038.jpeg,Good Foot Picture,Wound on foot
+39,039.jpeg,Good Foot Picture,Wound on foot
+40,040.jpeg,Good Foot Picture,Wound on foot
+41,041.jpeg,Not a Foot,Callus
+42,042.jpeg,Blurry (out of focus),Callus
+43,043.jpeg,Too Dark (Underexposed),Wound on foot
+44,044.jpeg,Blurry (out of focus),"Red, thick, swollen foot"
+45,045.jpeg,Blurry (out of focus),Wound on foot
+46,046.jpeg,Good Foot Picture,Normal Foot
+47,047.jpeg,Blurry (out of focus),Wound on foot
+48,048.jpeg,Blurry (out of focus),Wound on foot
+49,049.jpeg,Good Foot Picture,"Red, thick, swollen foot"
+50,050.jpeg,Good Foot Picture,"Red, thick, swollen foot"

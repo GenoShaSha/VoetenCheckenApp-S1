@@ -16,10 +16,11 @@ python -m venv .venv
 
 .\.venv\Scripts\activate
 
+# Only install it when running for the first time
 pip install -r requirements.txt
 ```
 
-(Adjust to match the actual imports in `python_server.py`.)
+(Adjust to match the actual imports in `python_server.py` IF needed.)
 
 ## Run the server
 
