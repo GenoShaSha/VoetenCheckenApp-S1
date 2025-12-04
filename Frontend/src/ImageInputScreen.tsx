@@ -248,6 +248,12 @@ const requestCameraPermission = async () => {
     <View style={styles.root}>
       <View style={styles.navbar}>
         <Text style={styles.navbarTitle}>Voet Check</Text>
+        <TouchableOpacity
+          style={styles.instructionsButton}
+          onPress={() => navigation.navigate('Instructions')}
+          activeOpacity={0.7}>
+          <Text style={styles.instructionsIcon}>📖</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.container}>
@@ -302,6 +308,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     flexDirection: 'row',
+    justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(148,163,184,0.4)',
   },
@@ -310,6 +317,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.4,
+  },
+  instructionsButton: {
+    padding: 8,
+  },
+  instructionsIcon: {
+    fontSize: 22,
   },
   container: {
     flex: 1,
