@@ -148,6 +148,20 @@ const requestCameraPermission = async () => {
   return status === 'granted';
 };
 
+  // Check if the image is a valid JPG/JPEG
+  const isValidJpgImage = (asset: {type?: string; fileName?: string; uri?: string}): boolean => {
+    // Check MIME type first
+    if (asset.type) {
+      const mimeType = asset.type.toLowerCase();
+      if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+        return true;
+      }
+    }
+    // Fallback: check file extension
+    const fileName = (asset.fileName || asset.uri || '').toLowerCase();
+    return fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+  };
+
   const pickImage = async () => {
     setError(null);
     setImage(null);
@@ -185,6 +199,15 @@ const requestCameraPermission = async () => {
       const asset = res?.assets?.[0];
       if (!asset) {
         setError('No image selected');
+        setLoading(false);
+        return;
+      }
+
+      // Validate that the image is a JPG
+      if (!isValidJpgImage(asset)) {
+        setError(
+          'Only JPG/JPEG images are supported. Please select a JPG image or take a photo with the camera.',
+        );
         setLoading(false);
         return;
       }
@@ -243,6 +266,15 @@ const requestCameraPermission = async () => {
       const asset = res?.assets?.[0];
       if (!asset) {
         setError('No image captured');
+        setLoading(false);
+        return;
+      }
+
+      // Validate that the image is a JPG
+      if (!isValidJpgImage(asset)) {
+        setError(
+          'Only JPG/JPEG images are supported. The camera should produce JPG images by default.',
+        );
         setLoading(false);
         return;
       }
