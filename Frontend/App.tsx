@@ -45,7 +45,8 @@ import ConditionResultScreen from './src/ConditionResultScreen';
 import CameraScreen from './src/CameraScreen';
 import AugmentedCameraScreen from './src/AugmentedCameraScreen';
 import InstructionsScreen from './src/InstructionsScreen';
-import {View, ActivityIndicator, StyleSheet} from 'react-native';
+import {View, ActivityIndicator, StyleSheet, Platform} from 'react-native';
+import Immersive from 'react-native-immersive';
 
 const FIRST_LAUNCH_KEY = '@voet_check_first_launch';
 
@@ -76,6 +77,11 @@ export default function App() {
 
   useEffect(() => {
     checkFirstLaunch();
+    // Enable immersive fullscreen mode (hide status bar and navigation bar)
+    if (Platform.OS === 'android') {
+      Immersive.on();
+      Immersive.setImmersive(true);
+    }
   }, []);
 
   const checkFirstLaunch = async () => {
