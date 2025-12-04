@@ -20,7 +20,7 @@ IQA_MODEL_PATH = os.path.join(BASE_DIR, 'foot_quality_best.keras')
 IQA_ENCODER_PATH = os.path.join(BASE_DIR, 'foot_quality_label_encoder.pkl')
 
 # Condition classifier model and label binarizer
-COND_MODEL_PATH = os.path.join(BASE_DIR, 'condition_classifier_efficientnetb3.keras')
+COND_MODEL_PATH = os.path.join(BASE_DIR, './improved_models/condition_classifier_efficientnetb3_latest_improved.keras')
 COND_BINARIZER_PATH = os.path.join(BASE_DIR, 'condition_label_binarizer.pkl')
 
 IQA_IMG_SIZE = (224, 224)
