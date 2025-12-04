@@ -13,12 +13,10 @@ import {
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../App';
 import {initTF} from './tfjs/modelLoader';
+import RNFS from 'react-native-fs';
 import {Camera} from 'react-native-vision-camera';
 import type {CameraPermissionStatus} from 'react-native-vision-camera';
-
-
-const conditionLabels = require('../my_tfjs_models/condition_labels.json');
-const iqaLabels = require('../my_tfjs_models/iqa_labels.json');
+import {runAnalysisPipeline} from './analysisPipeline';
 let launchImageLibrary: any = null;
 let launchCamera: any = null;
 try {
@@ -39,6 +37,14 @@ type ImageResult = {
   fileSize?: number;
   type?: string;
   base64?: string | null;
+};
+
+// Helper to read a local file (e.g. from VisionCamera) into base64
+const readFileToBase64 = async (uri: string): Promise<string> => {
+  // VisionCamera gives e.g. file:///data/user/0/...  RNFS expects paths without scheme
+  const path = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+  const base64 = await RNFS.readFile(path, 'base64');
+  return base64;
 };
 
 export default function ImageInputScreen({navigation}: Props) {
@@ -226,185 +232,12 @@ const requestCameraPermission = async () => {
         throw new Error('No base64 data available for prediction');
       }
 
-      const backendUrl = 'http://localhost:3000/predict';
-      const response = await fetch(backendUrl, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({imageBase64: picked.base64}),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Backend error ${response.status}: ${text}`);
-      }
-
-      const json = await response.json();
-      const condScores = json.conditionScores || [];
-      const iqaScores = json.iqaScores || [];
-      const opencv = json.opencvMetrics || null;
-
-      // STEP 1: IQA
-      const iqaWithLabels = iqaScores.map((s: number, i: number) => ({
-        label: iqaLabels[i] ?? String(i),
-        score: s,
-      }));
-      const iqaTop = [...iqaWithLabels]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
-      const bestIqa = iqaTop[0] || null;
-
-      // STEP 1a: Not-a-foot gate
-      if (bestIqa) {
-        const topLabelRaw = bestIqa.label || '';
-        const topLabelLower = topLabelRaw.toLowerCase();
-        const isNotFoot = topLabelLower === 'not a foot';
-
-        if (isNotFoot) {
-          const title = 'This picture does not look like a foot.';
-          const steps: string[] = [
-            '• Please take a clear photo of a single foot',
-            '• Make sure the whole foot is visible in the picture',
-            '• Let the foot fill most of the screen (not too far away)',
-          ];
-
-          const message =
-            title +
-            '\n\n' +
-            'Please try again:\n' +
-            steps.join('\n');
-
-          setLoading(false);
-          navigation.navigate('QualityReview', {
-            imageUri: picked.uri,
-            errorMessage: message,
-            iqaTop,
-            openCvMetrics: opencv,
-          });
-          return;
-        }
-      }
-
-      // STEP 1b: Quality gate
-      const isQualityGood =
-        bestIqa &&
-        (bestIqa.label.toLowerCase().includes('good') ||
-          bestIqa.score >= 0.7);
-
-      if (!isQualityGood) {
-        const topLabel = (bestIqa?.label || '').toLowerCase();
-        let title = 'Image quality issue';
-        const steps: string[] = [];
-
-        if (topLabel.includes('blur') || topLabel.includes('sharp')) {
-          title = 'The picture looks a bit blurry.';
-          steps.push(
-            '• Hold the phone steady with both hands',
-            '• Make sure the camera is in focus before taking the photo',
-            '• Try to take the picture a little closer (but keep the whole foot visible)',
-          );
-        } else if (
-          topLabel.includes('dark') ||
-          topLabel.includes('bright') ||
-          topLabel.includes('exposure')
-        ) {
-          title = 'The picture is too dark or too bright.';
-          steps.push(
-            '• Take the photo in a well-lit room or near a window',
-            '• Avoid very strong light or deep shadows on the foot',
-            '• Make sure the foot is clearly visible, not hidden in the dark',
-          );
-        } else if (
-          topLabel.includes('noise') ||
-          topLabel.includes('grain') ||
-          topLabel.includes('artifact')
-        ) {
-          title = 'The picture has too much noise.';
-          steps.push(
-            '• Take the picture in better light so the camera does not struggle',
-            '• Avoid zooming in too much',
-            '• Try again from a normal distance with a steady hand',
-          );
-        } else {
-          title = 'The picture is not clear enough to analyze.';
-          steps.push(
-            '• Hold the phone steady',
-            '• Make sure the whole foot is in the picture',
-            '• Take the photo in good light (no strong shadows)',
-          );
-        }
-
-        const message =
-          title +
-          '\n\n' +
-          'Please try again:\n' +
-          steps.join('\n');
-
-        setLoading(false);
-        navigation.navigate('QualityReview', {
-          imageUri: picked.uri,
-          errorMessage: message,
-          iqaTop,
-          openCvMetrics: opencv,
-        });
-        return;
-      }
-
-      // STEP 2: OpenCV
-      let opencvOk = true;
-      if (opencv) {
-        const {
-          Sharpness_Laplacian,
-          Contrast_STD,
-          Brightness,
-          NoiseVariance,
-          Blockiness,
-        } = opencv;
-
-        if (Sharpness_Laplacian != null && Sharpness_Laplacian < 60)
-          opencvOk = false;
-        if (Contrast_STD != null && (Contrast_STD < 10 || Contrast_STD > 80))
-          opencvOk = false;
-        if (Brightness != null && (Brightness < 40 || Brightness > 220))
-          opencvOk = false;
-        if (NoiseVariance != null && NoiseVariance > 40000)
-          opencvOk = false;
-        if (Blockiness != null && Blockiness > 600) opencvOk = false;
-      }
-
-      if (!opencvOk) {
-        const message =
-          'The photo quality is not ideal for analysis.\n\n' +
-          'Please make sure:\n' +
-          '• The picture is sharp (not blurry)\n' +
-          '• The foot is bright enough and not too dark\n' +
-          '• There are no blocks or stripes in the image';
-
-        setLoading(false);
-        navigation.navigate('QualityReview', {
-          imageUri: picked.uri,
-          errorMessage: message,
-          iqaTop,
-          openCvMetrics: opencv,
-        });
-        return;
-      }
-
-      // STEP 3: Condition
-      const condTop = condScores
-        .map((s: number, i: number) => ({
-          label: conditionLabels[i] ?? String(i),
-          score: s,
-        }))
-        .sort((a: any, b: any) => b.score - a.score)
-        .slice(0, 3);
-
-      setLoading(false);
-      navigation.navigate('ConditionResult', {
+      await runAnalysisPipeline({
+        navigation: navigation as any,
         imageUri: picked.uri,
-        iqaTop,
-        openCvMetrics: opencv,
-        condTop,
+        base64: picked.base64,
       });
+      setLoading(false);
     } catch (e: any) {
       setLoading(false);
       setError('Model inference failed: ' + String(e?.message ?? e));

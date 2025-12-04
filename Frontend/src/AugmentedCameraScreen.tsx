@@ -6,6 +6,9 @@ import {useRunOnJS} from 'react-native-worklets-core';
 import type {Camera as CameraType, Frame} from 'react-native-vision-camera';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../App';
+import {initTF} from './tfjs/modelLoader';
+import RNFS from 'react-native-fs';
+import {runAnalysisPipeline} from './analysisPipeline';
 
 const plugin = VisionCameraProxy.initFrameProcessorPlugin('detectImageQuality', {});
 
@@ -95,18 +98,47 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
     Tts.speak(text);
   }, [isTooDark, isTooBright, isBlurry, ttsMuted]);
 
+  const readFileToBase64 = async (uri: string): Promise<string> => {
+    const path = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+    console.log('[CAMERA] readFileToBase64 path:', path);
+    const base64 = await RNFS.readFile(path, 'base64');
+    console.log('[CAMERA] readFileToBase64 success, length:', base64?.length ?? 0);
+    return base64;
+  };
+
   const capture = async () => {
     if (!cameraRef.current || !device || permission !== 'granted') {
+      console.log('[CAMERA] capture blocked: cameraRef, device, or permission not ready', {
+        hasCamera: !!cameraRef.current,
+        hasDevice: !!device,
+        permission,
+      });
       return;
     }
     setError(null);
     setTakingPhoto(true);
     try {
+      console.log('[CAMERA] capture starting');
       const photo = await cameraRef.current.takePhoto({flash: 'off'});
-      // For now, just go back; your existing CameraScreen/ImageInput pipeline
-      // can be wired to use `photo.path` or `photo` later.
-      navigation.goBack();
+      console.log('[CAMERA] takePhoto result:', photo);
+      const uri = photo.path.startsWith('file://') ? photo.path : 'file://' + photo.path;
+      console.log('[CAMERA] Photo saved to:', uri);
+
+      console.log('[CAMERA] initTF() starting');
+      await initTF();
+      console.log('[CAMERA] initTF() done');
+
+      const base64 = await readFileToBase64(uri);
+
+      console.log('[CAMERA] runAnalysisPipeline call starting');
+      await runAnalysisPipeline({
+        navigation: navigation as any,
+        imageUri: uri,
+        base64,
+      });
+      console.log('[CAMERA] runAnalysisPipeline finished');
     } catch (e: any) {
+      console.log('[CAMERA] capture error:', e);
       setError(String(e?.message || e));
     } finally {
       setTakingPhoto(false);
@@ -147,14 +179,17 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
       {/* Top-left status icons for focus, brightness, framing (here: blur, dark, bright) */}
       <View style={styles.statusIconsContainer}>
         <View
-          style={[styles.statusIcon, isBlurry ? styles.statusBad : styles.statusGood]}
-        />
+          style={[styles.statusIcon, isBlurry ? styles.statusBad : styles.statusGood]}>
+          <Text style={styles.iconText}>🌫️</Text>
+        </View>
         <View
-          style={[styles.statusIcon, isTooDark ? styles.statusBad : styles.statusGood]}
-        />
+          style={[styles.statusIcon, isTooDark ? styles.statusBad : styles.statusGood]}>
+          <Text style={styles.iconText}>🌑</Text>
+        </View>
         <View
-          style={[styles.statusIcon, isTooBright ? styles.statusBad : styles.statusGood]}
-        />
+          style={[styles.statusIcon, isTooBright ? styles.statusBad : styles.statusGood]}>
+          <Text style={styles.iconText}>☀️</Text>
+        </View>
       </View>
 
       {/* Top guidance text */}
@@ -175,18 +210,14 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
         <Text style={styles.muteButtonText}>{ttsMuted ? '🔈' : '🔊'}</Text>
       </TouchableOpacity>
 
-      {/* Right side: flashlight slider UI (visual only for now) */}
-      <View pointerEvents="box-none" style={styles.flashSliderWrapper}>
+      {/* Right side: flashlight toggle button */}
+      <View pointerEvents="box-none" style={styles.flashWrapper}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setTorchOn(prev => !prev)}
-          style={styles.flashIcon}
-        />
-        <View style={styles.flashSliderTrack}>
-          <View
-            style={[styles.flashSliderThumb, torchOn && styles.flashSliderThumbOn]}
-          />
-        </View>
+          style={[styles.flashIcon, torchOn && styles.flashIconOn]}>
+          <Text style={styles.flashText}>🔦</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Bottom camera button */}
@@ -244,7 +275,7 @@ const styles = StyleSheet.create({
   },
   statusIconsContainer: {
     position: 'absolute',
-    top: 32,
+    top: 80,
     left: 16,
     paddingVertical: 8,
     paddingHorizontal: 6,
@@ -252,10 +283,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.7)',
   },
   statusIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    marginVertical: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    marginVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconText: {
+    fontSize: 18,
+    textAlign: 'center',
   },
   statusGood: {
     backgroundColor: '#16a34a',
@@ -278,39 +315,29 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
     fontSize: 18,
   },
-  flashSliderWrapper: {
+  flashWrapper: {
     position: 'absolute',
-    top: '18%',
-    bottom: '22%',
     right: 24,
+    // Position it somewhere reasonable on the right side
+    top: '23%', 
     alignItems: 'center',
   },
   flashIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(15,23,42,0.9)',
     borderWidth: 2,
     borderColor: '#e5e7eb',
-    marginBottom: 10,
-  },
-  flashSliderTrack: {
-    width: 22,
-    flex: 1,
-    borderRadius: 11,
-    backgroundColor: 'rgba(15,23,42,0.55)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
   },
-  flashSliderThumb: {
-    width: 22,
-    height: 24,
-    borderRadius: 8,
-    backgroundColor: '#f9fafb',
+  flashIconOn: {
+    backgroundColor: '#eab308',
+    borderColor: '#eab308',
   },
-  flashSliderThumbOn: {
-    backgroundColor: '#facc15',
+  flashText: {
+    fontSize: 24,
   },
   bottomBar: {
     position: 'absolute',

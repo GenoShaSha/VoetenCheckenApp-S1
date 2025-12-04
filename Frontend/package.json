@@ -19,7 +19,7 @@
     "@tensorflow/tfjs-react-native": "1.0.0",
     "base64-js": "^1.5.1",
     "buffer": "^6.0.3",
-    "expo-image-manipulator": "^14.0.7",
+    "react-native-fs": "^2.20.0",
     "jpeg-js": "^0.4.4",
     "react": "19.1.1",
     "react-native": "0.82.1",
