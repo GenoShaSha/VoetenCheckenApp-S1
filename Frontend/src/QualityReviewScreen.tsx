@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../App';
+import {savePrediction} from './historyStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QualityReview'>;
 
@@ -31,6 +32,17 @@ export default function QualityReviewScreen({route, navigation}: Props) {
     .split('\n')
     .map(t => t.replace(/^•\s*/, '').trim())
     .filter(t => t.length > 0);
+
+  const handleTakeNewPhoto = async () => {
+    // Save the failed attempt to history
+    await savePrediction({
+      imageUri,
+      isGoodQuality: false,
+      rejectionReason: title,
+      iqaLabel: iqaTop?.[0]?.label,
+    });
+    navigation.navigate('ImageInput');
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -78,7 +90,7 @@ export default function QualityReviewScreen({route, navigation}: Props) {
         <TouchableOpacity
           style={styles.retryButton}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('ImageInput')}>
+          onPress={handleTakeNewPhoto}>
           <Text style={styles.retryButtonText}>📷  Take a New Photo</Text>
         </TouchableOpacity>
 

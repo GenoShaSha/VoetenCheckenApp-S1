@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../App';
+import {savePrediction} from './historyStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConditionResult'>;
 
@@ -31,6 +32,18 @@ export default function ConditionResultScreen({route, navigation}: Props) {
   if (condTop) {
     console.log('[RESULT] Condition scores (not shown to user):', condTop);
   }
+
+  const handleSubmit = async () => {
+    console.log('Submit / log result');
+    // Save to history
+    await savePrediction({
+      imageUri,
+      isGoodQuality: true,
+      condition: mainCondition?.label,
+      iqaLabel: iqaTop?.[0]?.label,
+    });
+    navigation.navigate('ImageInput');
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -80,10 +93,7 @@ export default function ConditionResultScreen({route, navigation}: Props) {
         <TouchableOpacity
           style={styles.doneButton}
           activeOpacity={0.85}
-          onPress={() => {
-            console.log('Submit / log result');
-            navigation.navigate('ImageInput');
-          }}>
+          onPress={handleSubmit}>
           <Text style={styles.doneButtonText}>✓  Submit</Text>
         </TouchableOpacity>
 

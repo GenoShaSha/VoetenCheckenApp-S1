@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,22 @@ import {
   PermissionsAndroid,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {useFocusEffect} from '@react-navigation/native';
 import {RootStackParamList} from '../App';
 import {initTF} from './tfjs/modelLoader';
 import RNFS from 'react-native-fs';
 import {Camera} from 'react-native-vision-camera';
 import type {CameraPermissionStatus} from 'react-native-vision-camera';
 import {runAnalysisPipeline} from './analysisPipeline';
+import {
+  loadHistory,
+  clearHistory,
+  formatDate,
+  PredictionHistoryItem,
+} from './historyStorage';
 let launchImageLibrary: any = null;
 let launchCamera: any = null;
 try {
@@ -51,6 +59,36 @@ export default function ImageInputScreen({navigation}: Props) {
   const [image, setImage] = useState<ImageResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<PredictionHistoryItem[]>([]);
+
+  // Reload history whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchHistory = async () => {
+        const items = await loadHistory();
+        setHistory(items);
+      };
+      fetchHistory();
+    }, []),
+  );
+
+  const handleClearHistory = () => {
+    Alert.alert(
+      'Clear History',
+      'Are you sure you want to delete all prediction history?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            await clearHistory();
+            setHistory([]);
+          },
+        },
+      ],
+    );
+  };
 
   const requestAndroidPermission = async () => {
     if (Platform.OS !== 'android') return true;
@@ -290,6 +328,67 @@ const requestCameraPermission = async () => {
               <Image source={{uri: image.uri}} style={styles.preview} />
             </View>
           ) : null}
+
+          {/* Prediction History Section */}
+          {history.length > 0 && !loading && (
+            <View style={styles.historySection}>
+              <View style={styles.historyHeader}>
+                <Text style={styles.historyTitle}>📋 Recent Checks</Text>
+                <TouchableOpacity onPress={handleClearHistory} activeOpacity={0.7}>
+                  <Text style={styles.clearButton}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              {history.map((item) => (
+                <View key={item.id} style={styles.historyItem}>
+                  {item.imageUri ? (
+                    <Image
+                      source={{uri: item.imageUri}}
+                      style={styles.historyThumb}
+                    />
+                  ) : (
+                    <View style={[styles.historyThumb, styles.historyThumbPlaceholder]}>
+                      <Text style={styles.historyThumbPlaceholderText}>🦶</Text>
+                    </View>
+                  )}
+                  <View style={styles.historyInfo}>
+                    <View style={styles.historyRow}>
+                      <Text
+                        style={[
+                          styles.historyStatus,
+                          item.isGoodQuality
+                            ? styles.historyStatusGood
+                            : styles.historyStatusBad,
+                        ]}>
+                        {item.isGoodQuality ? '✓ Good Quality' : '✕ Not Accepted'}
+                      </Text>
+                      <Text style={styles.historyDate}>
+                        {formatDate(item.timestamp)}
+                      </Text>
+                    </View>
+                    {item.isGoodQuality && item.condition ? (
+                      <Text style={styles.historyCondition} numberOfLines={1}>
+                        {item.condition}
+                      </Text>
+                    ) : item.rejectionReason ? (
+                      <Text style={styles.historyRejection} numberOfLines={1}>
+                        {item.rejectionReason}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Empty state when no history */}
+          {history.length === 0 && !loading && !image?.uri && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateIcon}>📷</Text>
+              <Text style={styles.emptyStateText}>
+                Your foot check history will appear here
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </View>
@@ -397,5 +496,95 @@ const styles = StyleSheet.create({
     color: '#f97373',
     marginTop: 10,
     fontSize: 13,
+  },
+  // History styles
+  historySection: {
+    marginTop: 20,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#e5e7eb',
+  },
+  clearButton: {
+    color: '#ef4444',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  historyItem: {
+    flexDirection: 'row',
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.25)',
+  },
+  historyThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
+  },
+  historyThumbPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyThumbPlaceholderText: {
+    fontSize: 22,
+  },
+  historyInfo: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  historyStatus: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  historyStatusGood: {
+    color: '#4ade80',
+  },
+  historyStatusBad: {
+    color: '#f87171',
+  },
+  historyDate: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  historyCondition: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  historyRejection: {
+    fontSize: 12,
+    color: '#fbbf24',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+  },
+  emptyStateIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+    opacity: 0.5,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
   },
 });
