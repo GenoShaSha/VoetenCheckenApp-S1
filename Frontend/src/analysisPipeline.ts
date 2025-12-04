@@ -37,14 +37,36 @@ export const runAnalysisPipeline = async ({
   const iqaScores = json.iqaScores || [];
   const opencv = json.opencvMetrics || null;
 
+  console.log('[ANALYSIS] Raw OpenCV metrics:', opencv);
+
+  // Build labeled IQA predictions and sort by confidence
   const iqaWithLabels = iqaScores.map((s: number, i: number) => ({
     label: iqaLabels[i] ?? String(i),
     score: s,
   }));
-  const iqaTop = [...iqaWithLabels]
-    .sort((a: any, b: any) => b.score - a.score)
-    .slice(0, 3);
+  const iqaSorted = [...iqaWithLabels].sort((a: any, b: any) => b.score - a.score);
+  const iqaTop = iqaSorted.slice(0, 3);
   const bestIqa = iqaTop[0] || null;
+
+  // Log all IQA predictions with labels and scores
+  console.log('[ANALYSIS] === IQA Predictions (sorted by confidence) ===');
+  iqaSorted.forEach((item, idx) => {
+    const marker = idx === 0 ? '★ TOP' : `  #${idx + 1}`;
+    console.log(`[ANALYSIS] ${marker}: "${item.label}" → ${(item.score * 100).toFixed(1)}%`);
+  });
+
+  // Build labeled condition predictions and sort by confidence
+  const condWithLabels = condScores.map((s: number, i: number) => ({
+    label: conditionLabels[i] ?? String(i),
+    score: s,
+  }));
+  const condSorted = [...condWithLabels].sort((a: any, b: any) => b.score - a.score);
+
+  console.log('[ANALYSIS] === Condition Predictions (sorted by confidence) ===');
+  condSorted.forEach((item, idx) => {
+    const marker = idx === 0 ? '★ TOP' : `  #${idx + 1}`;
+    console.log(`[ANALYSIS] ${marker}: "${item.label}" → ${(item.score * 100).toFixed(1)}%`);
+  });
 
   if (bestIqa) {
     const topLabelRaw = bestIqa.label || '';
@@ -75,51 +97,66 @@ export const runAnalysisPipeline = async ({
     }
   }
 
-  const isQualityGood =
-    bestIqa &&
-    (bestIqa.label.toLowerCase().includes('good') ||
-      bestIqa.score >= 0.7);
+  // Only accept as "good foot picture" when the top IQA label itself
+  // clearly indicates a good foot image. Any other top label
+  // (blurry, dark, noisy, not-a-foot variants, etc.) should be treated
+  // as not good and routed to the quality screen.
+  const topLabelForCheck = (bestIqa?.label || '').toLowerCase();
+  const isQualityGood = topLabelForCheck.includes('good');
+  console.log('[ANALYSIS] Top IQA label:', bestIqa?.label, '| isQualityGood:', isQualityGood);
 
   if (!isQualityGood) {
     const topLabel = (bestIqa?.label || '').toLowerCase();
     let title = 'Image quality issue';
     const steps: string[] = [];
 
-    if (topLabel.includes('blur') || topLabel.includes('sharp')) {
-      title = 'The picture looks a bit blurry.';
+    if (topLabel.includes('bad angle') || topLabel.includes('not fully visible')) {
+      title = 'The foot is not fully visible or at a bad angle.';
+      steps.push(
+        '• Position the camera directly above or in front of the foot',
+        '• Make sure the entire foot is visible in the frame',
+        '• Avoid cutting off toes or the heel',
+        '• Try to keep the foot flat and facing the camera',
+      );
+    } else if (topLabel.includes('blurry') || topLabel.includes('blur') || topLabel.includes('focus')) {
+      title = 'The picture is blurry or out of focus.';
       steps.push(
         '• Hold the phone steady with both hands',
-        '• Make sure the camera is in focus before taking the photo',
-        '• Try to take the picture a little closer (but keep the whole foot visible)',
+        '• Wait for the camera to focus before taking the photo',
+        '• Avoid moving the phone while capturing',
+        '• Try taking the photo in better lighting conditions',
       );
-    } else if (
-      topLabel.includes('dark') ||
-      topLabel.includes('bright') ||
-      topLabel.includes('exposure')
-    ) {
-      title = 'The picture is too dark or too bright.';
+    } else if (topLabel.includes('not a foot')) {
+      title = 'This picture does not appear to be a foot.';
       steps.push(
-        '• Take the photo in a well-lit room or near a window',
-        '• Avoid very strong light or deep shadows on the foot',
-        '• Make sure the foot is clearly visible, not hidden in the dark',
+        '• Please take a clear photo of a single foot',
+        '• Make sure the whole foot is visible in the picture',
+        '• Let the foot fill most of the screen',
+        '• Remove any objects blocking the view of the foot',
       );
-    } else if (
-      topLabel.includes('noise') ||
-      topLabel.includes('grain') ||
-      topLabel.includes('artifact')
-    ) {
-      title = 'The picture has too much noise.';
+    } else if (topLabel.includes('dark') || topLabel.includes('underexposed')) {
+      title = 'The picture is too dark.';
       steps.push(
-        '• Take the picture in better light so the camera does not struggle',
-        '• Avoid zooming in too much',
-        '• Try again from a normal distance with a steady hand',
+        '• Move to a well-lit area or near a window',
+        '• Turn on more lights in the room',
+        '• Avoid shadows falling on the foot',
+        '• Consider using the camera flash if available',
+      );
+    } else if (topLabel.includes('too far') || topLabel.includes('too small')) {
+      title = 'The foot is too far away or too small in the frame.';
+      steps.push(
+        '• Move the camera closer to the foot',
+        '• The foot should fill most of the screen',
+        '• Keep approximately 20-30 cm distance from the foot',
+        '• Make sure the foot is still fully visible when closer',
       );
     } else {
-      title = 'The picture is not clear enough to analyze.';
+      title = 'The picture quality is not good enough to analyze.';
       steps.push(
         '• Hold the phone steady',
         '• Make sure the whole foot is in the picture',
-        '• Take the photo in good light (no strong shadows)',
+        '• Take the photo in good lighting (no strong shadows)',
+        '• Position the camera at a good angle',
       );
     }
 
@@ -176,16 +213,15 @@ export const runAnalysisPipeline = async ({
     return;
   }
 
-  const condTop = condScores
-    .map((s: number, i: number) => ({
-      label: conditionLabels[i] ?? String(i),
-      score: s,
-    }))
-    .sort((a: any, b: any) => b.score - a.score)
-    .slice(0, 3);
+  const condTop = condSorted.slice(0, 3);
+
+  const mainCondition = condTop[0] || null;
+  const isGoodFootPicture = true; // If we got here, all gates passed
 
   navigation.navigate('ConditionResult', {
     imageUri,
+    isGoodFootPicture,
+    mainCondition,
     iqaTop,
     openCvMetrics: opencv,
     condTop,

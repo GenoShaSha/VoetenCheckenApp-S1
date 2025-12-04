@@ -1,145 +1,238 @@
 import React from 'react';
-import {View, Text, Image, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConditionResult'>;
 
 export default function ConditionResultScreen({route, navigation}: Props) {
-  const {imageUri, iqaTop, openCvMetrics, condTop} = route.params;
+  const {
+    imageUri,
+    isGoodFootPicture,
+    mainCondition,
+    iqaTop,
+    openCvMetrics,
+    condTop,
+  } = route.params as any;
+
+  if (iqaTop) {
+    console.log('[RESULT] IQA top (not shown to user):', iqaTop);
+  }
+  if (openCvMetrics) {
+    console.log('[RESULT] OpenCV metrics (not shown to user):', openCvMetrics);
+  }
+  if (condTop) {
+    console.log('[RESULT] Condition scores (not shown to user):', condTop);
+  }
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root}>
+      {/* Navbar */}
       <View style={styles.navbar}>
         <Text style={styles.navbarTitle}>Voet Check</Text>
       </View>
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.headerTitle}>Foot condition result</Text>
 
-          {imageUri ? (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Photo used</Text>
-              <Image source={{uri: imageUri}} style={styles.preview} />
+      <View style={styles.content}>
+        {/* Header with success icon */}
+        <View style={styles.headerSection}>
+          <Text style={styles.headerTitle}>✅ Photo Accepted</Text>
+          <Text style={styles.headerSubtitle}>Your foot picture is good quality</Text>
+        </View>
+
+        {/* Photo preview */}
+        {imageUri ? (
+          <View style={styles.photoCard}>
+            <Image source={{uri: imageUri}} style={styles.preview} />
+            <View style={styles.photoOverlay}>
+              <Text style={styles.photoOverlayText}>✓</Text>
             </View>
-          ) : null}
+          </View>
+        ) : null}
 
-          {Array.isArray(iqaTop) ? (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Image quality (IQA)</Text>
-              {iqaTop.map((item, idx) => (
-                <View key={idx} style={styles.row}>
-                  <Text style={styles.label}>{item.label}</Text>
-                  <Text style={styles.value}>
-                    {(item.score * 100).toFixed(1)}%
-                  </Text>
-                </View>
-              ))}
+        {/* Condition result card */}
+        {mainCondition && (
+          <View style={styles.conditionCard}>
+            <Text style={styles.conditionTitle}>🔍 Analysis Result</Text>
+            <View style={styles.conditionRow}>
+              <Text style={styles.conditionLabel}>Detected:</Text>
+              <Text style={styles.conditionValue}>{mainCondition.label}</Text>
             </View>
-          ) : null}
-
-          {openCvMetrics ? (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>OpenCV metrics</Text>
-              <Text style={styles.label}>
-                Sharpness: {openCvMetrics.Sharpness_Laplacian?.toFixed(2) ?? '—'}
-              </Text>
-              <Text style={styles.label}>
-                Contrast: {openCvMetrics.Contrast_STD?.toFixed(2) ?? '—'}
-              </Text>
-              <Text style={styles.label}>
-                Brightness: {openCvMetrics.Brightness?.toFixed(2) ?? '—'}
-              </Text>
-              <Text style={styles.label}>
-                Noise: {openCvMetrics.NoiseVariance?.toFixed(2) ?? '—'}
-              </Text>
-              <Text style={styles.label}>
-                Blockiness: {openCvMetrics.Blockiness?.toFixed(2) ?? '—'}
+            <View style={styles.disclaimerBox}>
+              <Text style={styles.disclaimerText}>
+                ⚠️ This is an automatic estimate only. It is not a medical diagnosis. 
+                Please consult a healthcare professional to confirm and discuss any treatment.
               </Text>
             </View>
-          ) : null}
+          </View>
+        )}
 
-          {Array.isArray(condTop) ? (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Condition</Text>
-              {condTop.map((item, idx) => (
-                <View key={idx} style={styles.row}>
-                  <Text style={styles.label}>{item.label}</Text>
-                  <Text style={styles.value}>
-                    {(item.score * 100).toFixed(1)}%
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
+        {/* Spacer */}
+        <View style={styles.spacer} />
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => {
-              // here you can later call a /log endpoint if you want
-              console.log('Submit / log result');
-              navigation.navigate('ImageInput');
-            }}>
-            <Text style={styles.primaryButtonText}>Submit / Done</Text>
-          </TouchableOpacity>
-        </ScrollView>
+        {/* Action button */}
+        <TouchableOpacity
+          style={styles.doneButton}
+          activeOpacity={0.85}
+          onPress={() => {
+            console.log('Submit / log result');
+            navigation.navigate('ImageInput');
+          }}>
+          <Text style={styles.doneButtonText}>✓  Submit</Text>
+        </TouchableOpacity>
+
+        {/* Secondary link */}
+        <TouchableOpacity
+          style={styles.retakeLink}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('ImageInput')}>
+          <Text style={styles.retakeLinkText}>📷 Take another photo</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: '#020617'},
-  navbar: {
-    height: 56,
+  root: {
+    flex: 1,
     backgroundColor: '#0f172a',
+  },
+  navbar: {
+    height: 52,
+    backgroundColor: '#1e293b',
     paddingHorizontal: 20,
     alignItems: 'center',
     flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(148,163,184,0.2)',
   },
-  navbarTitle: {color: '#e5e7eb', fontSize: 18, fontWeight: '700'},
-  container: {flex: 1, backgroundColor: '#020617'},
-  content: {padding: 20, paddingBottom: 40},
+  navbarTitle: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  content: {
+    flex: 1,
+    padding: 18,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#e5e7eb',
-    marginBottom: 12,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#4ade80',
+    marginBottom: 6,
+    textAlign: 'center',
   },
-  card: {
-    marginTop: 12,
-    backgroundColor: '#020617',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.35)',
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    fontWeight: '500',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#e5e7eb',
-    marginBottom: 8,
+  photoCard: {
+    height: 360,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: '#22c55e',
+    marginBottom: 14,
   },
   preview: {
     width: '100%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    backgroundColor: '#111827',
+    height: '100%',
+    backgroundColor: '#1e293b',
   },
-  row: {
+  photoOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#22c55e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoOverlayText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  conditionCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+  },
+  conditionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 12,
+  },
+  conditionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  label: {color: '#9ca3af', fontSize: 13},
-  value: {color: '#e5e7eb', fontWeight: '600', fontSize: 13},
-  primaryButton: {
-    marginTop: 20,
-    alignSelf: 'flex-start',
-    backgroundColor: '#2563eb',
+  conditionLabel: {
+    color: '#94a3b8',
+    fontSize: 14,
+    marginRight: 8,
+  },
+  conditionValue: {
+    color: '#f1f5f9',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  disclaimerBox: {
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#fbbf24',
+  },
+  disclaimerText: {
+    color: '#fcd34d',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  spacer: {
+    flex: 1,
+    minHeight: 16,
+  },
+  doneButton: {
+    backgroundColor: '#22c55e',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  doneButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  retakeLink: {
+    alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
   },
-  primaryButtonText: {color: '#f9fafb', fontWeight: '600', fontSize: 15},
+  retakeLinkText: {
+    color: '#64748b',
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
