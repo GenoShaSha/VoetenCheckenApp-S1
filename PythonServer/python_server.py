@@ -1,6 +1,8 @@
 import base64
 import io
 import os
+import json
+from datetime import datetime
 
 from flask import Flask, request, jsonify
 from PIL import Image
@@ -14,6 +16,10 @@ import cv2
 # Paths (relative to project root)
 # ----------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Data folder for saving images and predictions
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Image quality (IQA) model and encoder
 IQA_MODEL_PATH = os.path.join(BASE_DIR, 'foot_quality_best.keras')
@@ -114,6 +120,61 @@ def compute_opencv_metrics_from_pil(img: Image.Image) -> dict:
     }
 
 
+def save_prediction_data(img: Image.Image, iqa_probs: np.ndarray, cond_probs: np.ndarray, opencv_metrics: dict):
+    """Save the image and prediction results to the data folder."""
+    try:
+        # Generate unique ID based on timestamp
+        timestamp = datetime.now()
+        prediction_id = timestamp.strftime('%Y%m%d_%H%M%S_%f')
+        
+        # Create subfolder for this prediction
+        prediction_dir = os.path.join(DATA_DIR, prediction_id)
+        os.makedirs(prediction_dir, exist_ok=True)
+        
+        # Save the image
+        image_path = os.path.join(prediction_dir, 'image.jpg')
+        img.save(image_path, 'JPEG', quality=95)
+        
+        # Build labeled predictions
+        iqa_predictions = [
+            {'label': iqa_class_names[i], 'score': float(iqa_probs[i])}
+            for i in range(len(iqa_probs))
+        ]
+        iqa_predictions.sort(key=lambda x: x['score'], reverse=True)
+        
+        cond_predictions = [
+            {'label': cond_class_names[i], 'score': float(cond_probs[i])}
+            for i in range(len(cond_probs))
+        ]
+        cond_predictions.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Build prediction data
+        prediction_data = {
+            'id': prediction_id,
+            'timestamp': timestamp.isoformat(),
+            'image_file': 'image.jpg',
+            'iqa_predictions': iqa_predictions,
+            'iqa_top_label': iqa_predictions[0]['label'] if iqa_predictions else None,
+            'iqa_top_score': iqa_predictions[0]['score'] if iqa_predictions else None,
+            'condition_predictions': cond_predictions,
+            'condition_top_label': cond_predictions[0]['label'] if cond_predictions else None,
+            'condition_top_score': cond_predictions[0]['score'] if cond_predictions else None,
+            'opencv_metrics': opencv_metrics,
+        }
+        
+        # Save prediction JSON
+        json_path = os.path.join(prediction_dir, 'prediction.json')
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(prediction_data, f, indent=2, ensure_ascii=False)
+        
+        print(f'[PYTHON_SERVER] Saved prediction data to: {prediction_dir}')
+        return prediction_id
+        
+    except Exception as e:
+        print(f'[PYTHON_SERVER] Warning: Failed to save prediction data: {e}')
+        return None
+
+
 # ----------------------
 # Flask app
 # ----------------------
@@ -149,6 +210,9 @@ def predict():
     cond_probs = cond_model.predict(cond_input, verbose=0)[0]
 
     opencv_metrics = compute_opencv_metrics_from_pil(img)
+
+    # Save image and predictions to data folder
+    save_prediction_data(img, iqa_probs, cond_probs, opencv_metrics)
 
     return jsonify({
         'conditionScores': [float(x) for x in cond_probs],
