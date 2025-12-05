@@ -1,61 +1,85 @@
 # VoetenChecken App
 
-Monorepo containing the React Native mobile app and a Python backend server for foot condition and image quality analysis.
+A mobile application for analyzing foot conditions and image quality using machine learning. The app captures or selects foot images and provides instant feedback on both image quality and potential foot conditions.
 
-## Projects
+## Project Structure
 
-- `ReactNativeFrontend/` – React Native app (Android/iOS)
-- `PythonServer/` – Python HTTP server exposing ML models
+```
+VoetProj/
+├── Frontend/           # React Native mobile app (Android/iOS)
+├── PythonServer/       # Python Flask backend with ML models
+└── README.md           # This file
+```
+
+## Features
+
+- **Image Capture & Selection** - Take photos with augmented camera or select from gallery
+- **Real-time Quality Feedback** - Live indicators for blur, darkness, and brightness
+- **Foot Condition Analysis** - ML-powered classification of foot conditions
+- **Voice Guidance** - Text-to-speech feedback during photo capture
+- **Interactive Onboarding** - Step-by-step instructions for first-time users
+- **Prediction History** - View past analyses on the home screen
+- **Server-side Data Logging** - Images and predictions saved for review
 
 ## Quick Start
 
-### 1. Python backend
+### Prerequisites
+
+| Component | Version |
+|-----------|---------|
+| Node.js | 18+ |
+| Python | 3.10+ |
+| Android Studio | Latest (with SDK & emulator) |
+| ADB | Included with Android Studio |
+
+### 1. Start the Python Backend
 
 ```powershell
-cd "PythonServer"
+cd PythonServer
 
-#Create a virtual enviroment if you haven't already
+# Create virtual environment (first time only)
 python -m venv .venv
 
-#Activate it
+# Activate virtual environment
 .\.venv\Scripts\activate
 
+# Install dependencies (first time only)
 pip install -r requirements.txt
 
+# Start the server
 python python_server.py
 ```
 
 By default the server listens on `http://localhost:3000` (adjust if you have changed this in `python_server.py`).
 
-### 2. React Native app
+### 2. Start the React Native App
 
-In another terminal:
+Open a new terminal:
 
 ```powershell
-cd "ReactNativeFrontend"
+cd Frontend
 
-# Only when running for the first time
+# Install dependencies (first time only)
 npm install
 
-# start Metro bundler
+# Start Metro bundler
 npm start
+```
 
-# Check for devices to make sure you can install the application
-adb devices
+Open another terminal:
 
-# In a second terminal, build & run on Android (Make sure you cd again into the ReactNative dir!)
+```powershell
+cd Frontend
+
+# Build and run on Android
 npx react-native run-android
 ```
 
-Make sure an Android emulator or device with USB debugging is connected. If the Python server runs on your Windows host at port 3000, you can forward the port to Android using:
+### 3. Connect App to Backend
+
+For Android emulator/device to reach the local server:
 
 ```powershell
 adb reverse tcp:3000 tcp:3000
 ```
 
-### 3. Environment notes
-
-- Node: see required version in `ReactNativeFrontend/package.json` under `engines`.
-- Python: 3.10+ recommended and a virtual environment per the steps above.
-
-For project‑specific details, see `ReactNativeFrontend/README.md` and `PythonServer/README.md`.
