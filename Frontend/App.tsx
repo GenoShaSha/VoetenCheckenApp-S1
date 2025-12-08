@@ -61,6 +61,8 @@ export type RootStackParamList = {
   };
   ConditionResult: {
     imageUri?: string;
+    isGoodFootPicture: boolean;
+    mainCondition?: {label: string; score: number};
     iqaTop: {label: string; score: number}[];
     openCvMetrics?: any;
     condTop: {label: string; score: number}[];
