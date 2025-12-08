@@ -42,7 +42,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageInputScreen from './src/ImageInputScreen';
 import QualityReviewScreen from './src/QualityReviewScreen';
 import ConditionResultScreen from './src/ConditionResultScreen';
-import CameraScreen from './src/CameraScreen';
 import AugmentedCameraScreen from './src/AugmentedCameraScreen';
 import InstructionsScreen from './src/InstructionsScreen';
 import {View, ActivityIndicator, StyleSheet, Platform} from 'react-native';
@@ -121,7 +120,6 @@ export default function App() {
         <Stack.Screen name="ImageInput" component={ImageInputScreen} />
         <Stack.Screen name="QualityReview" component={QualityReviewScreen} />
         <Stack.Screen name="ConditionResult" component={ConditionResultScreen} />
-        <Stack.Screen name="Camera" component={CameraScreen} />
         <Stack.Screen
           name="AugmentedCamera"
           component={AugmentedCameraScreen}
