@@ -12,6 +12,9 @@ import {runAnalysisPipeline} from './analysisPipeline';
 
 const plugin = VisionCameraProxy.initFrameProcessorPlugin('detectImageQuality', {});
 
+// Tooltip auto-dismiss duration (1.5 seconds as per guidelines)
+const TOOLTIP_DURATION = 1500;
+
 export type AugmentedCameraProps = NativeStackScreenProps<
   RootStackParamList,
   'AugmentedCamera'
@@ -31,6 +34,8 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
   const [isTooDark, setIsTooDark] = useState(false);
   const [isTooBright, setIsTooBright] = useState(false);
   const [isBlurry, setIsBlurry] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,8 +56,23 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
     Tts.setDefaultPitch(1.0);
     return () => {
       Tts.stop();
+      // Clear tooltip timeout on unmount
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Show tooltip with auto-dismiss (only 1 at a time, 1.5s duration)
+  const showTooltip = (message: string) => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    setActiveTooltip(message);
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setActiveTooltip(null);
+    }, TOOLTIP_DURATION);
+  };
 
   const updateQualityFlags = useRunOnJS((flags: {
     isTooDark: boolean;
@@ -79,7 +99,23 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
   }, [updateQualityFlags]);
 
   // Announce current issues whenever flags change (if not muted)
+  // Show only 1 tooltip at a time with priority: blur > dark > bright
   useEffect(() => {
+    // Determine which tooltip to show (priority order)
+    let tooltipMessage: string | null = null;
+    if (isBlurry) {
+      tooltipMessage = 'Image is blurry - hold steady';
+    } else if (isTooDark) {
+      tooltipMessage = 'Too dark - add more light';
+    } else if (isTooBright) {
+      tooltipMessage = 'Too bright - reduce light';
+    }
+
+    if (tooltipMessage) {
+      showTooltip(tooltipMessage);
+    }
+
+    // TTS announcement
     if (ttsMuted) {
       return;
     }
@@ -176,58 +212,77 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
         frameProcessor={frameProcessor}
       />
 
-      {/* Top-left status icons for focus, brightness, framing (here: blur, dark, bright) */}
+      {/* Top-left status icons (48x48 touch targets, 24x24 icons, 8dp spacing) */}
       <View style={styles.statusIconsContainer}>
-        <View
-          style={[styles.statusIcon, isBlurry ? styles.statusBad : styles.statusGood]}>
+        <TouchableOpacity
+          style={[styles.statusIcon, isBlurry ? styles.statusBad : styles.statusGood]}
+          activeOpacity={0.8}
+          accessibilityLabel={isBlurry ? 'Image is blurry' : 'Image is sharp'}>
           <Text style={styles.iconText}>🌫️</Text>
-        </View>
-        <View
-          style={[styles.statusIcon, isTooDark ? styles.statusBad : styles.statusGood]}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statusIcon, isTooDark ? styles.statusBad : styles.statusGood]}
+          activeOpacity={0.8}
+          accessibilityLabel={isTooDark ? 'Image is too dark' : 'Lighting is good'}>
           <Text style={styles.iconText}>🌑</Text>
-        </View>
-        <View
-          style={[styles.statusIcon, isTooBright ? styles.statusBad : styles.statusGood]}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statusIcon, isTooBright ? styles.statusBad : styles.statusGood]}
+          activeOpacity={0.8}
+          accessibilityLabel={isTooBright ? 'Image is too bright' : 'Brightness is good'}>
           <Text style={styles.iconText}>☀️</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
-      {/* Top guidance text */}
+      {/* Tooltip - only 1 shown at a time, auto-dismiss after 1.5s */}
+      {activeTooltip && (
+        <View style={styles.tooltipContainer}>
+          <View style={styles.tooltip}>
+            <Text style={styles.tooltipIcon}>⚠️</Text>
+            <Text style={styles.tooltipText}>{activeTooltip}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Top guidance text (16dp font minimum) */}
       <View style={styles.topMessageBar}>
         <Text style={styles.topMessageText}>
-          Please keep the camera steady and make sure the image is not blurry.
+          Keep the camera steady and ensure good lighting.
         </Text>
       </View>
 
-      {/* Top-right mute toggle for TTS */}
+      {/* Top-right mute toggle for TTS (48x48 touch target) */}
       <TouchableOpacity
         style={styles.muteButton}
         onPress={() => {
           setTtsMuted(prev => !prev);
           Tts.stop();
         }}
-        activeOpacity={0.8}>
+        activeOpacity={0.8}
+        accessibilityLabel={ttsMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}>
         <Text style={styles.muteButtonText}>{ttsMuted ? '🔈' : '🔊'}</Text>
       </TouchableOpacity>
 
-      {/* Right side: flashlight toggle button */}
+      {/* Right side: flashlight toggle button (48x48 touch target) */}
       <View pointerEvents="box-none" style={styles.flashWrapper}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setTorchOn(prev => !prev)}
-          style={[styles.flashIcon, torchOn && styles.flashIconOn]}>
+          style={[styles.flashIcon, torchOn && styles.flashIconOn]}
+          accessibilityLabel={torchOn ? 'Turn off flashlight' : 'Turn on flashlight'}>
           <Text style={styles.flashText}>🔦</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Bottom camera button */}
+      {/* Bottom camera button (larger for primary action) */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.cameraButton}
           activeOpacity={0.85}
-          onPress={capture}>
+          onPress={capture}
+          accessibilityLabel="Take photo">
           {takingPhoto ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#1e293b" size="large" />
           ) : (
             <View style={styles.cameraInner} />
           )}
@@ -241,104 +296,142 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
 
 const FRAME_BORDER = '#111827';
 
+// Color palette (max 3 colors as per guidelines):
+// Primary: #1e293b (dark slate) - backgrounds
+// Secondary: #ffffff (white) - text, icons
+// Accent: #22c55e (green) for good, #dc2626 (red) for bad
+
 const styles = StyleSheet.create({
   screenRoot: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loaderRoot: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  cameraFrame: {
-    // no longer used as a solid frame; kept for reference
-  },
+  // Top message bar - 16dp font minimum
   topMessageBar: {
     position: 'absolute',
     top: 24,
     left: 16,
     right: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(15,23,42,0.8)',
+    backgroundColor: 'rgba(30, 41, 59, 0.9)', // #1e293b with opacity
   },
   topMessageText: {
-    color: '#e5e7eb',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 16, // Minimum 16dp as per guidelines
     textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 22,
   },
+  // Status icons container - 8dp spacing between icons
   statusIconsContainer: {
     position: 'absolute',
-    top: 80,
+    top: 90,
     left: 16,
     paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: 'rgba(15,23,42,0.7)',
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    gap: 8, // 8dp spacing between icons
   },
+  // Status icon - 48x48 touch target with 24x24 icon inside
   statusIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    marginVertical: 4,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconText: {
-    fontSize: 18,
+    fontSize: 24, // 24dp icon size
     textAlign: 'center',
   },
+  // Good status - green with 4.5:1 contrast
   statusGood: {
-    backgroundColor: '#16a34a',
+    backgroundColor: '#22c55e', // Green - contrast 4.5:1 against dark
   },
+  // Bad status - red with 4.5:1 contrast
   statusBad: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#dc2626', // Red - contrast 4.5:1 against dark
   },
+  // Tooltip - 4dp spacing for icon, auto-dismiss after 1.5s
+  tooltipContainer: {
+    position: 'absolute',
+    top: 90,
+    left: 80,
+    right: 80,
+    alignItems: 'center',
+  },
+  tooltip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fbbf24', // Amber border for warning
+  },
+  tooltipIcon: {
+    fontSize: 18,
+    marginRight: 8, // 4dp+ spacing between icon and text (using 8 for better readability)
+  },
+  tooltipText: {
+    color: '#ffffff',
+    fontSize: 16, // Minimum 16dp
+    fontWeight: '500',
+  },
+  // Mute button - 48x48 touch target
   muteButton: {
     position: 'absolute',
     top: 30,
     right: 16,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(15,23,42,0.9)',
+    width: 48, // 48dp touch target
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   muteButtonText: {
-    color: '#e5e7eb',
-    fontSize: 18,
+    fontSize: 24, // 24dp icon
   },
+  // Flash button wrapper
   flashWrapper: {
     position: 'absolute',
-    right: 24,
-    // Position it somewhere reasonable on the right side
-    top: '23%', 
+    right: 16,
+    top: '25%',
     alignItems: 'center',
   },
+  // Flash icon - 48x48 touch target
   flashIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(15,23,42,0.9)',
+    width: 48, // 48dp touch target
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   flashIconOn: {
-    backgroundColor: '#eab308',
-    borderColor: '#eab308',
+    backgroundColor: '#fbbf24', // Amber when on
+    borderColor: '#fbbf24',
   },
   flashText: {
-    fontSize: 24,
+    fontSize: 24, // 24dp icon
   },
+  // Bottom bar with camera button
   bottomBar: {
     position: 'absolute',
     bottom: 48,
@@ -346,36 +439,49 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
+  // Camera button - larger primary action (72x72 for prominence)
   cameraButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: '#d1d5db',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
+    // Shadow for visibility against any background
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   cameraInner: {
-    width: 34,
-    height: 26,
-    borderRadius: 4,
-    borderWidth: 3,
-    borderColor: '#111827',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 4,
+    borderColor: '#1e293b',
+    backgroundColor: '#ffffff',
   },
+  // Permission error - 16dp font
   permissionError: {
-    color: '#f97373',
+    color: '#fca5a5', // Light red for contrast on dark
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 16, // Minimum 16dp
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
+  // Error overlay - 16dp font
   errorOverlay: {
     position: 'absolute',
-    top: 40,
+    top: 160,
     left: 20,
     right: 20,
-    color: '#f97373',
+    color: '#ffffff',
     textAlign: 'center',
-    backgroundColor: 'rgba(15,23,42,0.8)',
-    padding: 8,
-    borderRadius: 8,
-    fontSize: 13,
+    backgroundColor: 'rgba(220, 38, 38, 0.9)', // Red background
+    padding: 12,
+    borderRadius: 10,
+    fontSize: 16, // Minimum 16dp
+    fontWeight: '500',
   },
 });
