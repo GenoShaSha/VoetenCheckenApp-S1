@@ -87,7 +87,7 @@ export const runAnalysisPipeline = async ({
         'Please try again:\n' +
         steps.join('\n');
 
-      navigation.navigate('QualityReview', {
+      navigation.replace('QualityReview', {
         imageUri,
         errorMessage: message,
         iqaTop,
@@ -166,7 +166,7 @@ export const runAnalysisPipeline = async ({
       'Please try again:\n' +
       steps.join('\n');
 
-    navigation.navigate('QualityReview', {
+    navigation.replace('QualityReview', {
       imageUri,
       errorMessage: message,
       iqaTop,
@@ -185,7 +185,7 @@ export const runAnalysisPipeline = async ({
       Blockiness,
     } = opencv;
 
-    if (Sharpness_Laplacian != null && Sharpness_Laplacian < 60)
+    if (Sharpness_Laplacian != null && Sharpness_Laplacian < 1)
       opencvOk = false;
     if (Contrast_STD != null && (Contrast_STD < 10 || Contrast_STD > 80))
       opencvOk = false;
@@ -204,7 +204,7 @@ export const runAnalysisPipeline = async ({
       '• The foot is bright enough and not too dark\n' +
       '• There are no blocks or stripes in the image';
 
-    navigation.navigate('QualityReview', {
+    navigation.replace('QualityReview', {
       imageUri,
       errorMessage: message,
       iqaTop,
@@ -218,7 +218,7 @@ export const runAnalysisPipeline = async ({
   const mainCondition = condTop[0] || null;
   const isGoodFootPicture = true; // If we got here, all gates passed
 
-  navigation.navigate('ConditionResult', {
+  navigation.replace('ConditionResult', {
     imageUri,
     isGoodFootPicture,
     mainCondition,

@@ -219,7 +219,7 @@ This document describes the architecture of the VoetenChecken (Foot Check) appli
 │   │  │  - Brightness (Mean pixel value)                              │   │   │
 │   │  │  - Noise Variance                                             │   │   │
 │   │  │  - Blockiness Score                                           │   │   │
-│   │  └──────────────────────────────────────────────────────────────┘   │   │
+│   │  └──────────────────────────────────────────────────────────────┘   │   │ 
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
@@ -245,7 +245,7 @@ This document describes the architecture of the VoetenChecken (Foot Check) appli
 
 ### 4.1 Analysis Pipeline Flow
 
-```
+`
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         ANALYSIS PIPELINE FLOW                               │
 └─────────────────────────────────────────────────────────────────────────────┘

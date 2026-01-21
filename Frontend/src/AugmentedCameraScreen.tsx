@@ -36,6 +36,7 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
   const [isBlurry, setIsBlurry] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cameraActive, setCameraActive] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -101,6 +102,11 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
   // Announce current issues whenever flags change (if not muted)
   // Show only 1 tooltip at a time with priority: blur > dark > bright
   useEffect(() => {
+    // Don't show tooltips or TTS if camera is not active (photo already taken)
+    if (!cameraActive) {
+      return;
+    }
+    
     // Determine which tooltip to show (priority order)
     let tooltipMessage: string | null = null;
     if (isBlurry) {
@@ -132,7 +138,7 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
     const text = messages.join(' ');
     Tts.stop();
     Tts.speak(text);
-  }, [isTooDark, isTooBright, isBlurry, ttsMuted]);
+  }, [isTooDark, isTooBright, isBlurry, ttsMuted, cameraActive]);
 
   const readFileToBase64 = async (uri: string): Promise<string> => {
     const path = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
@@ -153,10 +159,22 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
     }
     setError(null);
     setTakingPhoto(true);
+    
+    // Stop TTS and tooltips immediately when capture starts
+    Tts.stop();
+    setActiveTooltip(null);
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    
     try {
       console.log('[CAMERA] capture starting');
       const photo = await cameraRef.current.takePhoto({flash: 'off'});
       console.log('[CAMERA] takePhoto result:', photo);
+      
+      // Deactivate camera AFTER taking the photo
+      setCameraActive(false);
+      
       const uri = photo.path.startsWith('file://') ? photo.path : 'file://' + photo.path;
       console.log('[CAMERA] Photo saved to:', uri);
 
@@ -176,6 +194,8 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
     } catch (e: any) {
       console.log('[CAMERA] capture error:', e);
       setError(String(e?.message || e));
+      // Re-enable camera on error so user can retry
+      setCameraActive(true);
     } finally {
       setTakingPhoto(false);
     }
@@ -205,11 +225,11 @@ export default function AugmentedCameraScreen({navigation}: AugmentedCameraProps
       <Camera
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={true}
+        isActive={cameraActive}
         ref={cameraRef}
         photo={true}
         torch={torchOn ? 'on' : 'off'}
-        frameProcessor={frameProcessor}
+        frameProcessor={cameraActive ? frameProcessor : undefined}
       />
 
       {/* Top-left status icons (48x48 touch targets, 24x24 icons, 8dp spacing) */}

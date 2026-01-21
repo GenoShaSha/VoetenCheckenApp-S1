@@ -28,7 +28,7 @@ VoetProj/
 | Component | Version |
 |-----------|---------|
 | Node.js | 18+ |
-| Python | 3.10+ |
+| Python | 3.11 |
 | Android Studio | Latest (with SDK & emulator) |
 | ADB | Included with Android Studio |
 
@@ -37,8 +37,6 @@ VoetProj/
 ```powershell
 cd PythonServer
 
-# Create virtual environment (first time only)
-python -m venv .venv
 
 # Activate virtual environment
 .\.venv\Scripts\activate
@@ -51,6 +49,12 @@ python python_server.py
 ```
 
 By default the server listens on `http://localhost:3000` (adjust if you have changed this in `python_server.py`).
+
+```powershell
+# Create virtual environment (first time only)
+python -m venv .venv
+```
+
 
 ### 2. Start the React Native App
 
